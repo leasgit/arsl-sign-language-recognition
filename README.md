@@ -1,6 +1,6 @@
 # Arabic Sign Language (ArSL) Letter Recognition
 
-AI for Lebanon — Education & Accessibility project. Trains a CNN to classify
+AI for Lebanon - Education & Accessibility project. Trains a CNN to classify
 Arabic Sign Language alphabet hand-signs from images, and deploys it in a
 live webcam demo (using MediaPipe hand detection) that lets you "spell" words
 letter by letter in front of your camera.
@@ -42,7 +42,7 @@ pip install tensorflow pandas numpy matplotlib seaborn scikit-learn nbformat
 Open `ArSL_Sign_Language_Recognition.ipynb` in Jupyter and run all cells.
 This trains the model and saves it as `arsl_cnn_model.keras`.
 
-### 4. Try the live webcam demo (optional)
+### 4. Try the live webcam demo
 ```bash
 pip install mediapipe opencv-python
 ```
