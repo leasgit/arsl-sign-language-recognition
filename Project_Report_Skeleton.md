@@ -7,35 +7,24 @@
 
 **Title:** Arabic Sign Language Letter Recognition: A CNN-Based Accessibility Tool for Deaf and Hard-of-Hearing Learners in Lebanon
 
-**Abstract** *(~150-200 words — write this LAST, once results are in)*
-> Summarize in 4-5 sentences:
-> - The problem (limited accessible tools for learning Arabic Sign Language)
-> - Your approach (CNN trained on ArSL2018 dataset, 32-letter classification)
-> - Your key result (test accuracy — fill in once training completes)
-> - Your one-sentence takeaway/conclusion
-
-"Deaf and hard-of-hearing individuals in Lebanon and the wider Arabic-speaking world face limited access to digital tools for learning Arabic Sign Language (ArSL). This project trains a convolutional neural network (CNN) to classify hand-sign images into 32 Arabic alphabet letters, using the publicly available ArSL2018 dataset (54,049 images, 40 signers). The model achieves **96.78%** test accuracy after training with class-weighted loss and data augmentation to address class imbalance, with every class individually achieving over 0.92 precision and recall. The model was further deployed in a live webcam demo using MediaPipe hand detection, correctly identifying all 32 letters (100% top-1) under controlled lighting conditions, though 9 letters required posture adjustment and 4 showed persistently variable confidence — findings that both validate the model's real-world applicability and surface an honest domain gap between studio-quality training data and live deployment. This work demonstrates the feasibility of a lightweight, low-cost recognition system that could underpin accessible learning apps for ArSL students in Lebanon and beyond."
+Deaf and hard-of-hearing individuals in Lebanon and the wider Arabic-speaking world face limited access to digital tools for learning Arabic Sign Language (ArSL). This project trains a convolutional neural network (CNN) to classify hand-sign images into 32 Arabic alphabet letters, using the publicly available ArSL2018 dataset (54,049 images, 40 signers). The model achieves 96.78% test accuracy after training with class-weighted loss and data augmentation to address class imbalance, with every class individually achieving over 0.92 precision and recall. The model was further deployed in a live webcam demo using MediaPipe hand detection, correctly identifying all 32 letters (100% top-1) under controlled lighting conditions, though 9 letters required posture adjustment and 4 showed persistently variable confidence. Such findings both validate the model's real-world applicability and show a domain gap between studio-quality training data and live deployment. This work demonstrates the feasibility of a lightweight, low-cost recognition system that could universalize accessible learning apps for ArSL students in Lebanon and beyond.
 
 ---
 
 ## 2. Introduction & Problem Statement
 
-*(~1/2 page)*
+The problem: Deaf and hard-of-hearing individuals in Lebanon have limited access to tools for learning/practicing Arabic Sign Language, compared to resources available for other sign languages (e.g., ASL).
 
-**Points to cover:**
-- **The problem:** Deaf and hard-of-hearing students in Lebanon have limited access to structured tools for learning/practicing Arabic Sign Language, compared to resources available for spoken Arabic or other sign languages (e.g., ASL).
-- **Why it matters / who benefits:**
-  - Deaf and hard-of-hearing students and their families
-  - Educators and schools serving deaf students in Lebanon
-  - Broader Arabic-speaking deaf community (dataset isn't Lebanon-specific, but the accessibility problem is regionally shared)
-- **Core goal of the project:** Build and evaluate a CNN that can automatically recognize ArSL alphabet hand-signs from images, as a technical foundation for an accessible learning or communication tool.
-- **Scope:** This project focuses on the *static alphabet* recognition task (not continuous signing/sentences), which is a reasonable and well-scoped entry point given the timeline.
+Its significance/who benefits: 
+-	Deaf and hard-of-hearing individuals and their families
+-	Educators and schools serving deaf students in Lebanon
+-	Broader Arabic-speaking deaf community (dataset isn't Lebanon-specific, but the accessibility problem is regionally shared)
+  
+Core goal of the project: Build and evaluate a CNN that can automatically recognize ArSL alphabet hand-signs from images, as a technical foundation for an accessible learning or communication tool.
 
 ---
 
 ## 3. Methodology (Approach / Reproduction Details)
-
-*(~3/4 page)*
 
 **Dataset:**
 - ArSL2018 dataset — 54,049 grayscale (64×64) images, 32 Arabic sign language letter classes, collected from 40 participants (Latif et al., 2019)
@@ -49,44 +38,44 @@
 - Class-weighted loss (`compute_class_weight`) to counter mild class imbalance
 
 **Model architecture:**
-- Custom CNN: 3 convolutional blocks (32 → 64 → 128 filters), each with BatchNorm + MaxPooling
-- Fully connected head: Dense(256) → Dropout(0.4) → Dense(32, softmax)
+- Custom CNN: 3 convolutional blocks (32 -> 64 -> 128 filters), each with BatchNorm + MaxPooling
+- Fully connected head: Dense(256) -> Dropout(0.4) -> Dense(32, softmax)
 - ~2.2M parameters
 - Optimizer: Adam (lr=1e-3), loss: sparse categorical cross-entropy
 - Early stopping (patience=4) + learning rate reduction on plateau
 
 **Why this approach:**
-- Explain briefly why a custom CNN (vs. transfer learning) was chosen as the baseline — e.g., dataset size is sufficient for training from scratch, images are small/simple (64×64 grayscale), and a lightweight model keeps training/deployment cheap — relevant for a real-world low-resource accessibility tool.
+Dataset size is sufficient for training from scratch since images are small/simple (64×64 grayscale). Moreover, a lightweight model keeps training/deployment cheap, which is relevant for a real-world low-resource accessibility tool.
 
 **Extension: Live webcam letter-spelling demo**
-As an extension beyond the static classification task, the trained model was deployed in a real-time webcam application. MediaPipe's `HandLandmarker` (Google's current hand-tracking model) detects and localizes the user's hand in each video frame; the detected region is cropped, converted to grayscale, resized to 64×64, and fed into the trained CNN exactly as during training. Predicted letters can be manually confirmed (via keypress) to spell out full words one letter at a time — a simple but functional demonstration of how this model could underpin a real accessibility or learning tool, going beyond static offline evaluation.
+As an extension beyond the classification task, the trained model was deployed in a real-time webcam application. MediaPipe's `HandLandmarker` (Google's current hand-tracking model) detects and localizes the user's hand in each video frame; the detected region is cropped, converted to grayscale, resized to 64×64, and fed into the trained CNN exactly as during training. Predicted letters can be manually confirmed (via keypress SPACE) to spell out full words one letter at a time.
 
 ---
 
 ## 4. Implementation Details & Results
 
-*(~3/4 page — fill in once training finishes)*
-
 **Training setup:**
 - Framework: TensorFlow/Keras 2.21
 - Hardware: trained on CPU (Windows)
-- Batch size: 64, ran the full 15 epochs (early stopping patience of 4 was not triggered — validation accuracy kept improving)
+- Batch size: 64, ran the full 15 epochs (early stopping patience of 4 was not triggered and validation accuracy kept improving)
 - Training time: ~42 minutes total (~160-280s/epoch)
 
 **Results:**
 - Final test accuracy: **96.78%**
 - Final test loss: **0.1403**
-- [Insert training/validation accuracy & loss curves — screenshot from notebook]
-- [Insert confusion matrix — screenshot from notebook]
-- Per-class performance: every class achieved precision and recall above 0.92. Strongest classes: `ain`, `yaa`, `meem`, `la` (all ≥0.99 precision). Relatively weaker (though still strong) classes: `ta` (0.924 precision), `zay` (0.923 precision), `gaaf` (0.927 precision), `fa` (0.933 precision) — macro and weighted averages both landed at 0.968.
+- <img width="1316" height="419" alt="image" src="https://github.com/user-attachments/assets/97175a28-3358-46db-8fe3-2e1427a609f3" />
+
+- <img width="1350" height="1237" alt="image" src="https://github.com/user-attachments/assets/2ff26575-a103-441f-9d45-34386d016bfe" />
+
+- Per-class performance: every class achieved precision and recall above 0.92. Strongest classes: `ain`, `yaa`, `meem`, `la` (all ≥0.99 precision). Relatively weaker (though still strong) classes: `ta` (0.924 precision), `zay` (0.923 precision), `gaaf` (0.927 precision), `fa` (0.933 precision). macro and weighted averages both landed at 0.968.
 
 **Sample predictions:**
-- [Insert screenshot of the correct/incorrect prediction grid from the notebook]
-- Of 9 random test samples visualized, 7 were correctly classified. The 2 errors were `haa`→predicted `khaa` and `jeem`→predicted `dal` — both are letters with some visual similarity in hand shape/angle. Notably, neither pair shows up as a major systematic confusion cluster in the full confusion matrix, suggesting these were isolated per-image mistakes (e.g., due to hand angle or motion blur in that specific photo) rather than a structural weakness in the model.
+- <img width="1322" height="1366" alt="image" src="https://github.com/user-attachments/assets/4dc45db6-a53d-4ceb-a945-3967f7c8431c" />
+- Of 9 random test samples visualized, 7 were correctly classified. The 2 errors were `haa`→predicted `khaa` and `jeem`→predicted `dal` , both are letters with some visual similarity in hand shape/angle. Notably, neither pair shows up as a major systematic confusion cluster in the full confusion matrix, suggesting these were isolated per-image mistakes (e.g. due to hand angle or motion blur in that specific photo) rather than a structural weakness in the model.
 
 **Live webcam demo evaluation:**
 
-Beyond the offline test set, the model was evaluated live via the MediaPipe-based webcam extension, testing all 32 letters under controlled conditions (bright, even lighting; hand held at arm's length from the camera — conditions found to be necessary for reliable results). All 32/32 letters (100%) were correctly identified as the model's top-1 prediction, though reliability and confidence varied by letter:
+Beyond the offline test set, the model was evaluated live via the MediaPipe-based webcam extension, testing all 32 letters under controlled conditions (bright, even lighting; hand held at arm's length from the camera - conditions found to be necessary for reliable results). All 32/32 letters (100%) were correctly identified as the model's top-1 prediction, though reliability and confidence varied by letter:
 
 | Reliability tier | Count | Letters |
 |---|---|---|
@@ -100,47 +89,28 @@ For the four persistently variable letters, confidence fluctuated noticeably acr
 - `dhad`: 54%, 64%, 75%, 84%, 96%
 - `gaaf`: 51%, 68%, 68%, 69%
 
-While the model always still landed on the correct top-1 prediction for these four, the confidence swings indicate the live classification is noticeably less stable for these letters than for the other 28.
+While the model always still landed on the correct top-1 prediction for these four, the confidence swings indicate the live classification is noticeably less stable for these letters.
 
 ---
 
 ## 5. Discussion & Analysis
 
-*(~1/2 page)*
+The confusion matrix is strongly diagonal with minimal systematic confusion between letters, indicating the class-weighting strategy successfully addressed the mild class imbalance without introducing new biases. The few individual errors observed (e.g., haa/khaa, jeem/dal) involve visually similar hand shapes which may be the source of error rather than a flaw in the model.
 
-**Points to cover:**
-- The 96.78% test accuracy is in line with published benchmarks on ArSL2018 — reported CNN results on this dataset in the literature typically fall in the 94-99% range on similar internal (non-signer-independent) splits, so this result is competitive with existing work.
-- The confusion matrix is strongly diagonal with very little systematic confusion between specific letter pairs — a positive sign that the class-weighting strategy successfully addressed the mild class imbalance without introducing new biases.
-- The handful of individual errors observed (e.g., `haa`/`khaa`, `jeem`/`dal`) involve letters with visually similar hand shapes, which is an intuitive and explainable source of error rather than a sign of a flawed model.
-- **Live webcam results validate the pipeline while surfacing a real, honest domain gap.** All 32 letters were eventually recognized correctly (100% top-1), confirming that the trained model generalizes beyond the studio-style dataset when conditions are favorable (bright, even lighting; consistent hand-to-camera distance). However, live conditions clearly matter: performance was only reliable under controlled lighting and framing, and 9 of 32 letters required some trial-and-error to find a hand posture the model recognized confidently — a gap the static test accuracy alone does not reveal.
-- **Cross-referencing live and offline weaknesses strengthens the analysis.** Two of the four letters that were persistently unstable live — `gaaf` (51-69% confidence) and `fa` (needed posture adjustment before stabilizing) — were *also* among the four lowest-precision classes on the static test set (`gaaf`: 0.927, `fa`: 0.933, vs. a 0.968 average). This agreement across two independent evaluations (offline test set and live webcam) is stronger evidence that these specific hand-shapes are genuinely harder for the model to distinguish — plausibly due to visual similarity with neighboring letters in ArSL — rather than an artifact of either evaluation method alone.
-- **`dhad` is an instructive counter-example.** It scored strongly on the static test set (0.976 precision, among the better-performing classes) yet was the *most* erratic letter live (54-96% confidence swings). This mismatch suggests the live instability for `dhad` is not primarily a model weakness, but more likely reflects a hand-shape that is physically harder for a human signer to hold consistently in front of a camera, or one more sensitive to small variations in hand angle/framing — a distinction that would not be visible from static test-set metrics alone, and illustrates why live testing was a valuable addition to this project rather than a redundant check.
-- An important caveat: this internal test split is drawn from the *same* 40 signers and consistent studio-style backgrounds as the training data. Real-world/live-camera performance is a genuine train/deployment domain gap — a new signer (the report author), unconstrained lighting, and a live camera feed the model never saw during training.
-- Limitations:
-  - Dataset is not Lebanon-specific and was collected in Saudi Arabia with only 40 signers — may not generalize well to different signing styles, camera setups, or lighting in a real deployment
-  - Static image classification doesn't capture continuous/dynamic signing
-  - Small 64×64 resolution may limit fine-grained hand detail
-  - Live performance is conditions-dependent: reliable results required bright, even lighting and a consistent arm's-length distance from the camera — a real deployment would need to handle a wider range of conditions than tested here
-- Future work: cross-dataset testing, signer-independent evaluation, expanding to words/phrases, collecting Lebanon-specific ArSL data, and testing live robustness across a wider range of lighting/distance/background conditions than the controlled setup used here
+Live webcam testing validated the model beyond the studio-style dataset: all 32 letters were eventually recognized correctly (100% top-1) under bright, even lighting and consistent camera distance at arm's length. However, 9 of 32 letters required posture adjustment before stabilizing, and 4 (taa, thaa, dhad, gaaf) showed persistent confidence fluctuation even after finding the right posture.
+
+Cross-referencing the two evaluations strengthens the analysis. gaaf and fa were weak in both the static test set (0.927 and 0.933 precision, the two lowest of all classes) and live testing, which is evidence that these specific hand-shapes are genuinely harder for the model to distinguish, likely due to visual similarity with neighboring letters. dhad is an instructive counter-example: strong on the static test set (0.976 precision) but the most erratic letter live (54-96% confidence swings), suggesting this instability is caused by a hand-shape that's physically harder for a human to hold consistently in front of a camera, rather than a model weakness.
+
+Limitations: the test split shares the same 40 signers and studio backgrounds as training, so live performance reflects a genuine train/deployment domain gap. The task is limited to static alphabet recognition, not continuous/dynamic signing, and 64×64 resolution may limit fine-grained detail. Live performance is conditions-dependent — reliable results required bright, even lighting and arm's-length distance from the camera.
+
+Future work: cross-dataset and signer-independent evaluation, expanding to words/phrases, collecting Lebanon-specific ArSL data, and testing robustness across a wider range of real-world lighting and distance conditions.
 
 ---
 
 ## 6. Reflection on Learnings
 
-*(~1/4 - 1/2 page)*
+The most rewarding part of this project was getting the live webcam demo working end-to-end. Watching the model correctly recognize hand-signs in real time, after offline evaluation, made the project feel like a real, usable tool rather than just a set of accuracy numbers.
 
-**Points to cover (write this based on your actual experience):**
-- What was the most rewarding part of this project?
-- What was the most challenging part, and how did you address it? (e.g., environment/package setup issues, understanding class imbalance, interpreting the confusion matrix)
-- What did you learn technically (e.g., building a `tf.data` pipeline, handling class imbalance, evaluating multi-class classifiers)?
-- What did you learn about the problem domain / accessibility considerations?
-- If you had more time, what would you do differently or explore further?
+The most challenging part was debugging the webcam pipeline, since problems there weren't visible in the code itself. They only showed up as wrong predictions with no error messages. I worked through this systematically: printing the model's full top-5 confidence ranking (not just its top guess) and saving the exact cropped image the model was actually seeing let me diagnose several distinct issues one at a time. Some issues I encountered include: a mirrored camera feed that fed the model wrong-orientation hands, a non-square crop that distorted the hand shape on resize, landmark-tracking drift that occasionally produced a bounding box covering my whole upper body, and even a small typo that zeroed out a safety threshold (I embarrassingly spent more time on this one than I'd like to admit). 
 
----
-
-## Submission Checklist
-
-- [ ] Code pushed to GitHub (public or shared repo link)
-- [ ] Report finalized as PDF/Word doc, 2-4 pages
-- [ ] 3-minute video recorded (plan → execution → results demo)
-- [ ] All submitted via the Google Form by **August 20**
+Technically, I learned how to build a full tf.data pipeline with augmentation, how to diagnose and correct for class imbalance using weighted loss, and how to evaluate a multi-class classifier properly. I also learned that offline test accuracy and real-world performance are different things that need to be measured separately, since a model can excel on one and be shakier on the other for reasons the test set alone can't reveal. That gap between benchmark performance and real deployment conditions is an important part of building usable accessibility technology.
