@@ -22,10 +22,12 @@ CLASS_NAMES = [
     "ya", "yaa", "zay",
 ]
 
+# User-facing forms. Ambiguous written forms such as hamza variants are
+# selected in the interface before the user adds the letter to the word.
 ARABIC_LABELS = {
     "ain": "ع",
     "al": "ال",
-    "aleff": "أ",
+    "aleff": "ا",
     "bb": "ب",
     "dal": "د",
     "dha": "ظ",
@@ -52,7 +54,7 @@ ARABIC_LABELS = {
     "thal": "ذ",
     "toot": "ة",
     "waw": "و",
-    "ya": "ئ",
+    "ya": "ي",
     "yaa": "ي",
     "zay": "ز",
 }
