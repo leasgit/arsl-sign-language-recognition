@@ -6,7 +6,7 @@ python -m PyInstaller `
   --noconfirm `
   --clean `
   --onedir `
-  --console `
+  --windowed `
   --name "ArSL Sign Recognition" `
   --add-data "arsl_cnn_model.keras;." `
   --add-data "hand_landmarker.task;." `
@@ -14,6 +14,6 @@ python -m PyInstaller `
   --hidden-import mediapipe.tasks.c `
   run_app.py
 
-Write-Host "" 
+Write-Host ""
 Write-Host "Build complete." -ForegroundColor Green
 Write-Host "Open: dist\ArSL Sign Recognition\ArSL Sign Recognition.exe"
