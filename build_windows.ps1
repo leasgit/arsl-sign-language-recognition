@@ -8,6 +8,8 @@ python -m PyInstaller `
   --onedir `
   --windowed `
   --name "ArSL Sign Recognition" `
+  --icon "assets\app_icon.ico" `
+  --add-data "assets\app_icon.ico;assets" `
   --add-data "arsl_cnn_model.keras;." `
   --add-data "hand_landmarker.task;." `
   --collect-all mediapipe `
