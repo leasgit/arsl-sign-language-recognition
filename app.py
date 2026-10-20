@@ -1,3 +1,4 @@
+import os
 import sys
 
 import cv2
@@ -13,6 +14,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from recognition import ArSLRecognizer
+
+
+MODEL_PATH = "arsl_cnn_model.keras"
+HAND_MODEL_PATH = "hand_landmarker.task"
+CONFIDENCE_THRESHOLD = 0.40
+RECOGNITION_INTERVAL_MS = 220
 
 TRANSLATIONS = {
     "en": {
@@ -23,12 +31,15 @@ TRANSLATIONS = {
         "camera_error": "Could not open the camera. Please check camera permissions.",
         "detected_sign": "Detected sign",
         "waiting_camera": "Waiting for camera",
-        "camera_ready": "Camera ready — recognition coming next",
+        "loading_model": "Loading recognition model...",
+        "no_hand": "No hand detected",
+        "uncertain": "Hold the sign steady",
+        "model_error": "Recognition files are missing or could not be loaded.",
         "current_word": "Current word",
         "add_letter": "Add Letter",
         "delete": "Delete",
         "clear": "Clear",
-        "privacy_note": "Camera processing will stay on this computer.",
+        "privacy_note": "Camera processing stays on this computer.",
         "language_button": "العربية",
     },
     "ar": {
@@ -39,7 +50,10 @@ TRANSLATIONS = {
         "camera_error": "تعذّر فتح الكاميرا. يرجى التحقق من أذونات الكاميرا.",
         "detected_sign": "الحرف المكتشف",
         "waiting_camera": "بانتظار الكاميرا",
-        "camera_ready": "الكاميرا جاهزة — سيتم ربط التعرّف في الخطوة التالية",
+        "loading_model": "جارٍ تحميل نموذج التعرّف...",
+        "no_hand": "لم يتم اكتشاف يد",
+        "uncertain": "ثبّت الإشارة للحظة",
+        "model_error": "ملفات التعرّف غير موجودة أو تعذّر تحميلها.",
         "current_word": "الكلمة الحالية",
         "add_letter": "إضافة الحرف",
         "delete": "حذف",
@@ -59,9 +73,15 @@ class ArSLApp(QMainWindow):
 
         self.current_language = "en"
         self.current_letter = ""
-        self.word = ""
+        self.word_tokens = []
         self.camera_active = False
         self.camera_failed = False
+        self.recognizer = None
+        self.recognition_error = False
+        self.latest_frame = None
+        self.latest_bbox = None
+        self.last_confidence = None
+        self.status_key = "waiting_camera"
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -70,7 +90,6 @@ class ArSLApp(QMainWindow):
         main_layout.setContentsMargins(32, 22, 32, 28)
         main_layout.setSpacing(18)
 
-        # Language switcher
         language_row = QHBoxLayout()
         language_row.addStretch()
         self.language_button = QPushButton()
@@ -94,14 +113,12 @@ class ArSLApp(QMainWindow):
         content_layout.setSpacing(24)
         main_layout.addLayout(content_layout, 1)
 
-        # Live camera preview
         self.camera_label = QLabel()
         self.camera_label.setAlignment(Qt.AlignCenter)
         self.camera_label.setMinimumSize(600, 430)
         self.camera_label.setObjectName("camera")
         content_layout.addWidget(self.camera_label, 3)
 
-        # Recognition panel
         panel = QWidget()
         panel.setObjectName("panel")
         panel_layout = QVBoxLayout(panel)
@@ -163,86 +180,47 @@ class ArSLApp(QMainWindow):
 
         self.setStyleSheet(
             """
-            QMainWindow {
-                background: #f4f6f8;
-            }
-            QLabel#title {
-                font-size: 30px;
-                font-weight: 700;
-                color: #20252b;
-            }
-            QLabel#subtitle {
-                font-size: 15px;
-                color: #66707a;
-            }
-            QLabel#camera {
-                background: #1e2329;
-                color: #c8ced5;
-                border-radius: 16px;
-                font-size: 17px;
-            }
-            QWidget#panel {
-                background: white;
-                border-radius: 16px;
-            }
-            QLabel#sectionHeading {
-                font-size: 16px;
-                font-weight: 600;
-                color: #4d5660;
-            }
-            QLabel#letter {
-                font-size: 88px;
-                font-weight: 700;
-                color: #20252b;
-                min-height: 120px;
-            }
-            QLabel#confidence {
-                font-size: 14px;
-                color: #68737d;
-            }
-            QLabel#word {
-                font-size: 40px;
-                font-weight: 600;
-                color: #20252b;
-                background: #f4f6f8;
-                border-radius: 10px;
-                padding: 14px;
-                min-height: 62px;
-            }
-            QPushButton {
-                min-height: 46px;
-                border-radius: 9px;
-                border: 1px solid #cbd2d9;
-                background: white;
-                color: #20252b;
-                font-size: 15px;
-                font-weight: 600;
-                padding: 0 16px;
-            }
-            QPushButton:hover {
-                background: #eef1f4;
-            }
-            QPushButton#primary {
-                background: #20252b;
-                color: white;
-                border: none;
-            }
-            QPushButton#languageButton {
-                min-height: 34px;
-                max-height: 34px;
-                font-size: 13px;
-                padding: 0 12px;
-            }
-            QLabel#note {
-                font-size: 12px;
-                color: #7a848e;
-            }
+            QMainWindow { background: #f4f6f8; }
+            QLabel#title { font-size: 30px; font-weight: 700; color: #20252b; }
+            QLabel#subtitle { font-size: 15px; color: #66707a; }
+            QLabel#camera { background: #1e2329; color: #c8ced5; border-radius: 16px; font-size: 17px; }
+            QWidget#panel { background: white; border-radius: 16px; }
+            QLabel#sectionHeading { font-size: 16px; font-weight: 600; color: #4d5660; }
+            QLabel#letter { font-size: 88px; font-weight: 700; color: #20252b; min-height: 120px; }
+            QLabel#confidence { font-size: 14px; color: #68737d; }
+            QLabel#word { font-size: 40px; font-weight: 600; color: #20252b; background: #f4f6f8; border-radius: 10px; padding: 14px; min-height: 62px; }
+            QPushButton { min-height: 46px; border-radius: 9px; border: 1px solid #cbd2d9; background: white; color: #20252b; font-size: 15px; font-weight: 600; padding: 0 16px; }
+            QPushButton:hover { background: #eef1f4; }
+            QPushButton#primary { background: #20252b; color: white; border: none; }
+            QPushButton#languageButton { min-height: 34px; max-height: 34px; font-size: 13px; padding: 0 12px; }
+            QLabel#note { font-size: 12px; color: #7a848e; }
             """
         )
         self.add_button.setObjectName("primary")
+        self.add_button.setEnabled(False)
 
         self.apply_language()
+        self.load_recognizer()
         self.start_camera()
+
+    def load_recognizer(self):
+        self.status_key = "loading_model"
+        self.apply_language()
+
+        if not os.path.isfile(MODEL_PATH) or not os.path.isfile(HAND_MODEL_PATH):
+            self.recognition_error = True
+            self.status_key = "model_error"
+            self.apply_language()
+            return
+
+        try:
+            self.recognizer = ArSLRecognizer(MODEL_PATH, HAND_MODEL_PATH)
+        except Exception:
+            self.recognition_error = True
+            self.status_key = "model_error"
+        else:
+            self.status_key = "no_hand"
+        self.apply_language()
 
     def start_camera(self):
         self.capture = cv2.VideoCapture(0)
@@ -254,11 +232,17 @@ class ArSLApp(QMainWindow):
 
         self.camera_active = True
         self.camera_failed = False
-        self.apply_language()
 
         self.camera_timer = QTimer(self)
         self.camera_timer.timeout.connect(self.update_camera_frame)
         self.camera_timer.start(30)
+
+        if self.recognizer is not None:
+            self.recognition_timer = QTimer(self)
+            self.recognition_timer.timeout.connect(self.run_recognition)
+            self.recognition_timer.start(RECOGNITION_INTERVAL_MS)
+
+        self.apply_language()
 
     def update_camera_frame(self):
         if not self.camera_active:
@@ -268,28 +252,70 @@ class ArSLApp(QMainWindow):
         if not ok:
             return
 
-        # Mirror only the displayed preview so it feels natural to the user.
-        # Recognition will later use the original unmirrored frame.
+        self.latest_frame = frame.copy()
         display_frame = cv2.flip(frame, 1)
-        rgb_frame = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
 
+        if self.latest_bbox is not None:
+            x1, y1, x2, y2 = self.latest_bbox
+            frame_width = frame.shape[1]
+            display_x1 = frame_width - x2
+            display_x2 = frame_width - x1
+            cv2.rectangle(display_frame, (display_x1, y1), (display_x2, y2), (90, 220, 120), 3)
+
+        rgb_frame = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
         height, width, channels = rgb_frame.shape
         bytes_per_line = channels * width
-        image = QImage(
-            rgb_frame.data,
-            width,
-            height,
-            bytes_per_line,
-            QImage.Format_RGB888,
-        ).copy()
-
-        pixmap = QPixmap.fromImage(image)
-        pixmap = pixmap.scaled(
-            self.camera_label.size(),
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation,
+        image = QImage(rgb_frame.data, width, height, bytes_per_line, QImage.Format_RGB888).copy()
+        pixmap = QPixmap.fromImage(image).scaled(
+            self.camera_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
         )
         self.camera_label.setPixmap(pixmap)
+
+    def run_recognition(self):
+        if self.recognizer is None or self.latest_frame is None:
+            return
+
+        prediction = self.recognizer.predict(self.latest_frame)
+
+        if prediction is None:
+            self.current_letter = ""
+            self.latest_bbox = None
+            self.last_confidence = None
+            self.letter_label.setText("—")
+            self.status_key = "no_hand"
+            self.add_button.setEnabled(False)
+            self.update_status_display()
+            return
+
+        self.latest_bbox = prediction.bbox
+        self.last_confidence = prediction.confidence
+
+        if prediction.confidence < CONFIDENCE_THRESHOLD:
+            self.current_letter = ""
+            self.letter_label.setText("—")
+            self.status_key = "uncertain"
+            self.add_button.setEnabled(False)
+        else:
+            self.current_letter = prediction.arabic
+            self.letter_label.setText(prediction.arabic)
+            self.add_button.setEnabled(True)
+            self.status_key = None
+
+        self.update_status_display()
+
+    def update_status_display(self):
+        text = TRANSLATIONS[self.current_language]
+        if self.last_confidence is not None:
+            if self.status_key == "uncertain":
+                self.confidence_label.setText(f"{text['uncertain']} · {self.last_confidence:.0%}")
+            elif self.current_letter:
+                self.confidence_label.setText(f"{self.last_confidence:.0%}")
+            else:
+                self.confidence_label.setText(text["no_hand"])
+        elif self.status_key:
+            self.confidence_label.setText(text[self.status_key])
+        else:
+            self.confidence_label.setText(text["waiting_camera"])
 
     def toggle_language(self):
         self.current_language = "ar" if self.current_language == "en" else "en"
@@ -302,18 +328,12 @@ class ArSLApp(QMainWindow):
         self.title_label.setText(text["title"])
         self.subtitle_label.setText(text["subtitle"])
 
-        # Do not call setText while a live pixmap is being displayed, because
-        # QLabel.setText() would clear the camera image.
         if self.camera_failed:
             self.camera_label.setText(text["camera_error"])
         elif not self.camera_active:
             self.camera_label.setText(text["camera_placeholder"])
 
         self.detected_heading.setText(text["detected_sign"])
-        if self.camera_active:
-            self.confidence_label.setText(text["camera_ready"])
-        else:
-            self.confidence_label.setText(text["waiting_camera"])
         self.word_heading.setText(text["current_word"])
         self.add_button.setText(text["add_letter"])
         self.delete_button.setText(text["delete"])
@@ -333,31 +353,37 @@ class ArSLApp(QMainWindow):
         self.delete_button.setLayoutDirection(direction)
         self.clear_button.setLayoutDirection(direction)
 
+        self.update_status_display()
         self.update_word_display()
 
     def add_letter(self):
         if not self.current_letter:
             return
-        self.word += self.current_letter
+        self.word_tokens.append(self.current_letter)
         self.update_word_display()
 
     def delete_letter(self):
-        if self.word:
-            self.word = self.word[:-1]
+        if self.word_tokens:
+            self.word_tokens.pop()
         self.update_word_display()
 
     def clear_word(self):
-        self.word = ""
+        self.word_tokens.clear()
         self.update_word_display()
 
     def update_word_display(self):
-        self.word_label.setText(self.word if self.word else "—")
+        word = "".join(self.word_tokens)
+        self.word_label.setText(word if word else "—")
 
     def closeEvent(self, event):
         if hasattr(self, "camera_timer"):
             self.camera_timer.stop()
+        if hasattr(self, "recognition_timer"):
+            self.recognition_timer.stop()
         if hasattr(self, "capture") and self.capture.isOpened():
             self.capture.release()
+        if self.recognizer is not None:
+            self.recognizer.close()
         event.accept()
 
 
