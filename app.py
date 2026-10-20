@@ -22,6 +22,12 @@ HAND_MODEL_PATH = "hand_landmarker.task"
 CONFIDENCE_THRESHOLD = 0.40
 RECOGNITION_INTERVAL_MS = 220
 
+VARIANT_OPTIONS = {
+    "aleff": ["ا", "أ", "إ", "آ"],
+    "waw": ["و", "ؤ"],
+    "ya": ["ي", "ئ"],
+}
+
 TRANSLATIONS = {
     "en": {
         "window_title": "ArSL Sign Recognition",
@@ -35,6 +41,7 @@ TRANSLATIONS = {
         "no_hand": "No hand detected",
         "uncertain": "Hold the sign steady",
         "model_error": "Recognition files are missing or could not be loaded.",
+        "written_form": "Choose written form",
         "current_word": "Current word",
         "add_letter": "Add Letter",
         "delete": "Delete",
@@ -54,6 +61,7 @@ TRANSLATIONS = {
         "no_hand": "لم يتم اكتشاف يد",
         "uncertain": "ثبّت الإشارة للحظة",
         "model_error": "ملفات التعرّف غير موجودة أو تعذّر تحميلها.",
+        "written_form": "اختر الشكل الكتابي",
         "current_word": "الكلمة الحالية",
         "add_letter": "إضافة الحرف",
         "delete": "حذف",
@@ -73,6 +81,8 @@ class ArSLApp(QMainWindow):
 
         self.current_language = "en"
         self.current_letter = ""
+        self.current_class_name = None
+        self.current_variant_group = None
         self.word_tokens = []
         self.camera_active = False
         self.camera_failed = False
@@ -142,7 +152,32 @@ class ArSLApp(QMainWindow):
         self.confidence_label.setObjectName("confidence")
         panel_layout.addWidget(self.confidence_label)
 
-        panel_layout.addSpacing(18)
+        self.variant_widget = QWidget()
+        variant_layout = QVBoxLayout(self.variant_widget)
+        variant_layout.setContentsMargins(0, 0, 0, 0)
+        variant_layout.setSpacing(8)
+
+        self.variant_heading = QLabel()
+        self.variant_heading.setAlignment(Qt.AlignCenter)
+        self.variant_heading.setObjectName("variantHeading")
+        variant_layout.addWidget(self.variant_heading)
+
+        variant_buttons_layout = QHBoxLayout()
+        variant_buttons_layout.setSpacing(8)
+        self.variant_buttons = []
+        for index in range(4):
+            button = QPushButton()
+            button.setObjectName("variantButton")
+            button.setCheckable(True)
+            button.clicked.connect(lambda checked=False, i=index: self.select_variant(i))
+            self.variant_buttons.append(button)
+            variant_buttons_layout.addWidget(button)
+        variant_layout.addLayout(variant_buttons_layout)
+
+        self.variant_widget.setVisible(False)
+        panel_layout.addWidget(self.variant_widget)
+
+        panel_layout.addSpacing(10)
 
         self.word_heading = QLabel()
         self.word_heading.setAlignment(Qt.AlignCenter)
@@ -188,11 +223,14 @@ class ArSLApp(QMainWindow):
             QLabel#sectionHeading { font-size: 16px; font-weight: 600; color: #4d5660; }
             QLabel#letter { font-size: 88px; font-weight: 700; color: #20252b; min-height: 120px; }
             QLabel#confidence { font-size: 14px; color: #68737d; }
+            QLabel#variantHeading { font-size: 12px; color: #7a848e; }
             QLabel#word { font-size: 40px; font-weight: 600; color: #20252b; background: #f4f6f8; border-radius: 10px; padding: 14px; min-height: 62px; }
             QPushButton { min-height: 46px; border-radius: 9px; border: 1px solid #cbd2d9; background: white; color: #20252b; font-size: 15px; font-weight: 600; padding: 0 16px; }
             QPushButton:hover { background: #eef1f4; }
             QPushButton#primary { background: #20252b; color: white; border: none; }
             QPushButton#languageButton { min-height: 34px; max-height: 34px; font-size: 13px; padding: 0 12px; }
+            QPushButton#variantButton { min-height: 38px; max-height: 38px; font-size: 20px; padding: 0 10px; }
+            QPushButton#variantButton:checked { background: #20252b; color: white; border: none; }
             QLabel#note { font-size: 12px; color: #7a848e; }
             """
         )
@@ -279,11 +317,13 @@ class ArSLApp(QMainWindow):
 
         if prediction is None:
             self.current_letter = ""
+            self.current_class_name = None
             self.latest_bbox = None
             self.last_confidence = None
             self.letter_label.setText("—")
             self.status_key = "no_hand"
             self.add_button.setEnabled(False)
+            self.variant_widget.setVisible(False)
             self.update_status_display()
             return
 
@@ -292,16 +332,71 @@ class ArSLApp(QMainWindow):
 
         if prediction.confidence < CONFIDENCE_THRESHOLD:
             self.current_letter = ""
+            self.current_class_name = prediction.class_name
             self.letter_label.setText("—")
             self.status_key = "uncertain"
             self.add_button.setEnabled(False)
+            self.variant_widget.setVisible(False)
         else:
-            self.current_letter = prediction.arabic
-            self.letter_label.setText(prediction.arabic)
-            self.add_button.setEnabled(True)
+            self.current_class_name = prediction.class_name
             self.status_key = None
+            self.configure_written_form(prediction.class_name, prediction.arabic)
+            self.add_button.setEnabled(True)
 
         self.update_status_display()
+
+    def variant_group_for_class(self, class_name):
+        if class_name in ("ya", "yaa"):
+            return "ya"
+        if class_name in VARIANT_OPTIONS:
+            return class_name
+        return None
+
+    def configure_written_form(self, class_name, default_letter):
+        group = self.variant_group_for_class(class_name)
+
+        if group is None:
+            self.current_variant_group = None
+            self.current_letter = default_letter
+            self.letter_label.setText(default_letter)
+            self.variant_widget.setVisible(False)
+            return
+
+        options = VARIANT_OPTIONS[group]
+        group_changed = group != self.current_variant_group
+        self.current_variant_group = group
+        self.variant_widget.setVisible(True)
+
+        for index, button in enumerate(self.variant_buttons):
+            if index < len(options):
+                button.setText(options[index])
+                button.setVisible(True)
+                button.setEnabled(True)
+            else:
+                button.setVisible(False)
+                button.setEnabled(False)
+                button.setChecked(False)
+
+        if group_changed or self.current_letter not in options:
+            self.current_letter = options[0]
+
+        for index, option in enumerate(options):
+            self.variant_buttons[index].setChecked(option == self.current_letter)
+
+        self.letter_label.setText(self.current_letter)
+
+    def select_variant(self, index):
+        if self.current_variant_group is None:
+            return
+
+        options = VARIANT_OPTIONS[self.current_variant_group]
+        if index >= len(options):
+            return
+
+        self.current_letter = options[index]
+        for button_index, button in enumerate(self.variant_buttons):
+            button.setChecked(button_index == index)
+        self.letter_label.setText(self.current_letter)
 
     def update_status_display(self):
         text = TRANSLATIONS[self.current_language]
@@ -334,6 +429,7 @@ class ArSLApp(QMainWindow):
             self.camera_label.setText(text["camera_placeholder"])
 
         self.detected_heading.setText(text["detected_sign"])
+        self.variant_heading.setText(text["written_form"])
         self.word_heading.setText(text["current_word"])
         self.add_button.setText(text["add_letter"])
         self.delete_button.setText(text["delete"])
@@ -347,6 +443,7 @@ class ArSLApp(QMainWindow):
         self.subtitle_label.setLayoutDirection(direction)
         self.detected_heading.setLayoutDirection(direction)
         self.confidence_label.setLayoutDirection(direction)
+        self.variant_heading.setLayoutDirection(direction)
         self.word_heading.setLayoutDirection(direction)
         self.note_label.setLayoutDirection(direction)
         self.add_button.setLayoutDirection(direction)
