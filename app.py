@@ -12,14 +12,46 @@ from PySide6.QtWidgets import (
 )
 
 
+TRANSLATIONS = {
+    "en": {
+        "window_title": "ArSL Sign Recognition",
+        "title": "Arabic Sign Language Recognition",
+        "subtitle": "Show an Arabic Sign Language letter to the camera",
+        "camera_placeholder": "Camera preview will appear here",
+        "detected_sign": "Detected sign",
+        "waiting_camera": "Waiting for camera",
+        "current_word": "Current word",
+        "add_letter": "Add Letter",
+        "delete": "Delete",
+        "clear": "Clear",
+        "privacy_note": "Camera processing will stay on this computer.",
+        "language_button": "العربية",
+    },
+    "ar": {
+        "window_title": "التعرّف على لغة الإشارة العربية",
+        "title": "التعرّف على حروف لغة الإشارة العربية",
+        "subtitle": "اعرض حرفًا من لغة الإشارة العربية أمام الكاميرا",
+        "camera_placeholder": "ستظهر معاينة الكاميرا هنا",
+        "detected_sign": "الحرف المكتشف",
+        "waiting_camera": "بانتظار الكاميرا",
+        "current_word": "الكلمة الحالية",
+        "add_letter": "إضافة الحرف",
+        "delete": "حذف",
+        "clear": "مسح",
+        "privacy_note": "تتم معالجة الكاميرا محليًا على هذا الجهاز.",
+        "language_button": "English",
+    },
+}
+
+
 class ArSLApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("ArSL Sign Recognition")
         self.resize(1100, 700)
         self.setMinimumSize(900, 600)
 
+        self.current_language = "en"
         self.current_letter = ""
         self.word = ""
 
@@ -27,25 +59,35 @@ class ArSLApp(QMainWindow):
         self.setCentralWidget(central)
 
         main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(32, 28, 32, 28)
-        main_layout.setSpacing(22)
+        main_layout.setContentsMargins(32, 22, 32, 28)
+        main_layout.setSpacing(18)
 
-        title = QLabel("Arabic Sign Language Recognition")
-        title.setAlignment(Qt.AlignCenter)
-        title.setObjectName("title")
-        main_layout.addWidget(title)
+        # Language switcher
+        language_row = QHBoxLayout()
+        language_row.addStretch()
+        self.language_button = QPushButton()
+        self.language_button.setObjectName("languageButton")
+        self.language_button.setFixedWidth(100)
+        self.language_button.clicked.connect(self.toggle_language)
+        language_row.addWidget(self.language_button)
+        main_layout.addLayout(language_row)
 
-        subtitle = QLabel("Show an Arabic Sign Language letter to the camera")
-        subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setObjectName("subtitle")
-        main_layout.addWidget(subtitle)
+        self.title_label = QLabel()
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setObjectName("title")
+        main_layout.addWidget(self.title_label)
+
+        self.subtitle_label = QLabel()
+        self.subtitle_label.setAlignment(Qt.AlignCenter)
+        self.subtitle_label.setObjectName("subtitle")
+        main_layout.addWidget(self.subtitle_label)
 
         content_layout = QHBoxLayout()
         content_layout.setSpacing(24)
         main_layout.addLayout(content_layout, 1)
 
         # Camera area — the real webcam feed will be connected in the next step.
-        self.camera_label = QLabel("Camera preview will appear here")
+        self.camera_label = QLabel()
         self.camera_label.setAlignment(Qt.AlignCenter)
         self.camera_label.setMinimumSize(600, 430)
         self.camera_label.setObjectName("camera")
@@ -59,10 +101,10 @@ class ArSLApp(QMainWindow):
         panel_layout.setSpacing(16)
         content_layout.addWidget(panel, 2)
 
-        detected_heading = QLabel("Detected sign")
-        detected_heading.setAlignment(Qt.AlignCenter)
-        detected_heading.setObjectName("sectionHeading")
-        panel_layout.addWidget(detected_heading)
+        self.detected_heading = QLabel()
+        self.detected_heading.setAlignment(Qt.AlignCenter)
+        self.detected_heading.setObjectName("sectionHeading")
+        panel_layout.addWidget(self.detected_heading)
 
         self.letter_label = QLabel("—")
         self.letter_label.setAlignment(Qt.AlignCenter)
@@ -70,17 +112,17 @@ class ArSLApp(QMainWindow):
         self.letter_label.setObjectName("letter")
         panel_layout.addWidget(self.letter_label)
 
-        self.confidence_label = QLabel("Waiting for camera")
+        self.confidence_label = QLabel()
         self.confidence_label.setAlignment(Qt.AlignCenter)
         self.confidence_label.setObjectName("confidence")
         panel_layout.addWidget(self.confidence_label)
 
         panel_layout.addSpacing(18)
 
-        word_heading = QLabel("Current word")
-        word_heading.setAlignment(Qt.AlignCenter)
-        word_heading.setObjectName("sectionHeading")
-        panel_layout.addWidget(word_heading)
+        self.word_heading = QLabel()
+        self.word_heading.setAlignment(Qt.AlignCenter)
+        self.word_heading.setObjectName("sectionHeading")
+        panel_layout.addWidget(self.word_heading)
 
         self.word_label = QLabel("—")
         self.word_label.setAlignment(Qt.AlignCenter)
@@ -90,9 +132,9 @@ class ArSLApp(QMainWindow):
 
         panel_layout.addStretch()
 
-        self.add_button = QPushButton("Add Letter")
-        self.delete_button = QPushButton("Delete")
-        self.clear_button = QPushButton("Clear")
+        self.add_button = QPushButton()
+        self.delete_button = QPushButton()
+        self.clear_button = QPushButton()
 
         self.add_button.clicked.connect(self.add_letter)
         self.delete_button.clicked.connect(self.delete_letter)
@@ -105,11 +147,11 @@ class ArSLApp(QMainWindow):
         secondary_buttons.addWidget(self.clear_button)
         panel_layout.addLayout(secondary_buttons)
 
-        note = QLabel("Camera processing will stay on this computer.")
-        note.setWordWrap(True)
-        note.setAlignment(Qt.AlignCenter)
-        note.setObjectName("note")
-        panel_layout.addWidget(note)
+        self.note_label = QLabel()
+        self.note_label.setWordWrap(True)
+        self.note_label.setAlignment(Qt.AlignCenter)
+        self.note_label.setObjectName("note")
+        panel_layout.addWidget(self.note_label)
 
         self.setStyleSheet(
             """
@@ -177,6 +219,12 @@ class ArSLApp(QMainWindow):
                 color: white;
                 border: none;
             }
+            QPushButton#languageButton {
+                min-height: 34px;
+                max-height: 34px;
+                font-size: 13px;
+                padding: 0 12px;
+            }
             QLabel#note {
                 font-size: 12px;
                 color: #7a848e;
@@ -184,6 +232,42 @@ class ArSLApp(QMainWindow):
             """
         )
         self.add_button.setObjectName("primary")
+
+        self.apply_language()
+
+    def toggle_language(self):
+        self.current_language = "ar" if self.current_language == "en" else "en"
+        self.apply_language()
+
+    def apply_language(self):
+        text = TRANSLATIONS[self.current_language]
+
+        self.setWindowTitle(text["window_title"])
+        self.title_label.setText(text["title"])
+        self.subtitle_label.setText(text["subtitle"])
+        self.camera_label.setText(text["camera_placeholder"])
+        self.detected_heading.setText(text["detected_sign"])
+        self.confidence_label.setText(text["waiting_camera"])
+        self.word_heading.setText(text["current_word"])
+        self.add_button.setText(text["add_letter"])
+        self.delete_button.setText(text["delete"])
+        self.clear_button.setText(text["clear"])
+        self.note_label.setText(text["privacy_note"])
+        self.language_button.setText(text["language_button"])
+
+        direction = Qt.RightToLeft if self.current_language == "ar" else Qt.LeftToRight
+        self.centralWidget().setLayoutDirection(direction)
+        self.title_label.setLayoutDirection(direction)
+        self.subtitle_label.setLayoutDirection(direction)
+        self.detected_heading.setLayoutDirection(direction)
+        self.confidence_label.setLayoutDirection(direction)
+        self.word_heading.setLayoutDirection(direction)
+        self.note_label.setLayoutDirection(direction)
+        self.add_button.setLayoutDirection(direction)
+        self.delete_button.setLayoutDirection(direction)
+        self.clear_button.setLayoutDirection(direction)
+
+        self.update_word_display()
 
     def add_letter(self):
         if not self.current_letter:
