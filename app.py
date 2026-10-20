@@ -1,6 +1,8 @@
 import sys
 
-from PySide6.QtCore import Qt
+import cv2
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -18,8 +20,10 @@ TRANSLATIONS = {
         "title": "Arabic Sign Language Recognition",
         "subtitle": "Show an Arabic Sign Language letter to the camera",
         "camera_placeholder": "Camera preview will appear here",
+        "camera_error": "Could not open the camera. Please check camera permissions.",
         "detected_sign": "Detected sign",
         "waiting_camera": "Waiting for camera",
+        "camera_ready": "Camera ready — recognition coming next",
         "current_word": "Current word",
         "add_letter": "Add Letter",
         "delete": "Delete",
@@ -32,8 +36,10 @@ TRANSLATIONS = {
         "title": "التعرّف على حروف لغة الإشارة العربية",
         "subtitle": "اعرض حرفًا من لغة الإشارة العربية أمام الكاميرا",
         "camera_placeholder": "ستظهر معاينة الكاميرا هنا",
+        "camera_error": "تعذّر فتح الكاميرا. يرجى التحقق من أذونات الكاميرا.",
         "detected_sign": "الحرف المكتشف",
         "waiting_camera": "بانتظار الكاميرا",
+        "camera_ready": "الكاميرا جاهزة — سيتم ربط التعرّف في الخطوة التالية",
         "current_word": "الكلمة الحالية",
         "add_letter": "إضافة الحرف",
         "delete": "حذف",
@@ -54,6 +60,8 @@ class ArSLApp(QMainWindow):
         self.current_language = "en"
         self.current_letter = ""
         self.word = ""
+        self.camera_active = False
+        self.camera_failed = False
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -86,7 +94,7 @@ class ArSLApp(QMainWindow):
         content_layout.setSpacing(24)
         main_layout.addLayout(content_layout, 1)
 
-        # Camera area — the real webcam feed will be connected in the next step.
+        # Live camera preview
         self.camera_label = QLabel()
         self.camera_label.setAlignment(Qt.AlignCenter)
         self.camera_label.setMinimumSize(600, 430)
@@ -234,6 +242,54 @@ class ArSLApp(QMainWindow):
         self.add_button.setObjectName("primary")
 
         self.apply_language()
+        self.start_camera()
+
+    def start_camera(self):
+        self.capture = cv2.VideoCapture(0)
+        if not self.capture.isOpened():
+            self.camera_failed = True
+            self.camera_active = False
+            self.apply_language()
+            return
+
+        self.camera_active = True
+        self.camera_failed = False
+        self.apply_language()
+
+        self.camera_timer = QTimer(self)
+        self.camera_timer.timeout.connect(self.update_camera_frame)
+        self.camera_timer.start(30)
+
+    def update_camera_frame(self):
+        if not self.camera_active:
+            return
+
+        ok, frame = self.capture.read()
+        if not ok:
+            return
+
+        # Mirror only the displayed preview so it feels natural to the user.
+        # Recognition will later use the original unmirrored frame.
+        display_frame = cv2.flip(frame, 1)
+        rgb_frame = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
+
+        height, width, channels = rgb_frame.shape
+        bytes_per_line = channels * width
+        image = QImage(
+            rgb_frame.data,
+            width,
+            height,
+            bytes_per_line,
+            QImage.Format_RGB888,
+        ).copy()
+
+        pixmap = QPixmap.fromImage(image)
+        pixmap = pixmap.scaled(
+            self.camera_label.size(),
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation,
+        )
+        self.camera_label.setPixmap(pixmap)
 
     def toggle_language(self):
         self.current_language = "ar" if self.current_language == "en" else "en"
@@ -245,9 +301,19 @@ class ArSLApp(QMainWindow):
         self.setWindowTitle(text["window_title"])
         self.title_label.setText(text["title"])
         self.subtitle_label.setText(text["subtitle"])
-        self.camera_label.setText(text["camera_placeholder"])
+
+        # Do not call setText while a live pixmap is being displayed, because
+        # QLabel.setText() would clear the camera image.
+        if self.camera_failed:
+            self.camera_label.setText(text["camera_error"])
+        elif not self.camera_active:
+            self.camera_label.setText(text["camera_placeholder"])
+
         self.detected_heading.setText(text["detected_sign"])
-        self.confidence_label.setText(text["waiting_camera"])
+        if self.camera_active:
+            self.confidence_label.setText(text["camera_ready"])
+        else:
+            self.confidence_label.setText(text["waiting_camera"])
         self.word_heading.setText(text["current_word"])
         self.add_button.setText(text["add_letter"])
         self.delete_button.setText(text["delete"])
@@ -286,6 +352,13 @@ class ArSLApp(QMainWindow):
 
     def update_word_display(self):
         self.word_label.setText(self.word if self.word else "—")
+
+    def closeEvent(self, event):
+        if hasattr(self, "camera_timer"):
+            self.camera_timer.stop()
+        if hasattr(self, "capture") and self.capture.isOpened():
+            self.capture.release()
+        event.accept()
 
 
 if __name__ == "__main__":
