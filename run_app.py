@@ -2,7 +2,7 @@ import os
 import sys
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QSplashScreen
 
 
@@ -59,6 +59,10 @@ os.chdir(get_app_directory())
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
+    icon_path = os.path.join("assets", "app_icon.ico")
+    if os.path.isfile(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+
     splash = create_splash()
     splash.show()
     app.processEvents()
@@ -74,6 +78,8 @@ if __name__ == "__main__":
     app.processEvents()
 
     window = ArSLApp()
+    if os.path.isfile(icon_path):
+        window.setWindowIcon(QIcon(icon_path))
     window.show()
     splash.finish(window)
 
