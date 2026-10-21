@@ -23,17 +23,27 @@ Download and run:
 
 Follow the setup wizard, then launch **ArSL Sign Recognition** from the Start Menu or desktop shortcut.
 
+## Recommended recognition conditions
+
+For the most reliable predictions:
+
+- Use a white or plain light background behind the hand.
+- Use good, even lighting so the hand is clearly visible.
+- Keep the full hand visible and reasonably centered in the camera view.
+
 ## Current validation
 
 - CNN test accuracy on ArSL2018: 96.78%.
 - Macro-average precision / recall / F1: 0.968.
 - Controlled webcam evaluation: all 32 classes recognized top-1.
 - Packaged application tested on Windows 11 x64.
+- Clean-machine installer test completed successfully on a separate Windows laptop; recognition also worked correctly there.
 
 ## Known limitations
 
 - Recognizes isolated alphabet signs only; this is not continuous sign-language translation.
 - Performance varies with signer, lighting, camera quality, hand position, background, and distance.
+- Current testing shows the most reliable performance with a white/plain light background and good lighting.
 - The training dataset consists of still images, so webcam conditions introduce a domain shift.
 - Arabic orthographic variants such as hamza forms cannot always be inferred from the hand sign and may require user selection.
 - The current installer is unsigned, so Windows SmartScreen may show an unrecognized-app warning on some computers.
