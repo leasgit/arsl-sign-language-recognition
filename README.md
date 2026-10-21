@@ -16,6 +16,14 @@ The easiest way to use the project is the Windows installer. No Python setup or 
 
 The app shows a loading screen while the recognition model starts, then opens the webcam interface. It supports English and Arabic interface text.
 
+### For best recognition
+
+For the most reliable predictions:
+
+- Use a **white or plain light background** behind the hand.
+- Use **good, even lighting** so the hand is clearly visible to the camera.
+- Keep the full hand visible and reasonably centered in the camera view.
+
 > The current packaged build has been tested on Windows 11 x64. It should be tested on the exact NGO/target machines before deployment.
 
 ## What the app does
@@ -33,6 +41,7 @@ This is an **isolated-letter recognition prototype**, not a complete Arabic Sign
 
 - It recognizes one alphabet sign at a time; it does not recognize continuous signing, full words, grammar, facial expressions, or sentences.
 - Accuracy can vary with lighting, camera quality, background, hand position, distance, and signer differences.
+- In current testing, recognition is most reliable with a white/plain light background and good lighting.
 - The CNN was trained on the ArSL2018 image dataset, so real webcam conditions can differ from the training data.
 - Some written Arabic forms cannot be determined from the hand sign alone. For example, the recognized alef sign may need to be written as `ا`, `أ`, `إ`, or `آ`, so the user chooses the intended form in the interface.
 - Dataset/test accuracy should not be interpreted as guaranteed real-world accuracy.
