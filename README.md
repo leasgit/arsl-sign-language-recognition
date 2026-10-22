@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  <img src="assets/demo.gif" alt="ArSL Sign Recognition demo" width="900">
+</p>
+
+<p align="center">
   <a href="https://github.com/leasgit/arsl-sign-language-recognition/releases/latest/download/ArSL_Sign_Recognition_Setup.exe"><strong>⬇ Download for Windows</strong></a>
   &nbsp;•&nbsp;
   <a href="https://github.com/leasgit/arsl-sign-language-recognition/releases/latest">Latest release</a>
